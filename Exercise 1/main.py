@@ -13,6 +13,7 @@ import pandas as pd
 from keras.layers import Input, Dense
 from keras.models import Model
 from keras.optimizers import Adam
+from keras.callbacks import TensorBoard
 import seaborn as sns
 from matplotlib import pyplot as plt
 
@@ -20,6 +21,12 @@ from matplotlib import pyplot as plt
 TRAIN_DATA = "./data/train/train_data.csv"
 VAL_DATA = "./data/val/val_data.csv"
 TEST_DATA = "./data/test/test_data.csv"
+
+
+def create_callbacks(log_dir):
+    tensorboard_callback = TensorBoard(log_dir=log_dir, histogram_freq=1, batch_size=32,
+                                       write_graph=True, write_grads=False)
+    return [tensorboard_callback]
 
 
 def load_data():
@@ -71,8 +78,8 @@ def build_dnn_network(input_features=None):
 if __name__ == '__main__':
     data = load_data()
     input_features = data["train_X"].shape[1]
-    #model = build_mlp_network(input_features)
-    model = build_dnn_network(input_features)
+    model = build_mlp_network(input_features)
+    #model = build_dnn_network(input_features)
     print("Network Structure")
     print(model.summary())
     model.fit(x=data["train_X"],
@@ -80,7 +87,8 @@ if __name__ == '__main__':
               batch_size=32,
               epochs=200,
               verbose=1,
-              validation_data=(data["val_X"], data["val_y"]))
+              validation_data=(data["val_X"], data["val_y"]),
+              callbacks=create_callbacks('./ch3_tb_log/dnn'))
 
     train_MAE = mean_absolute_error(model.predict(data["train_X"]), data["train_y"])
     val_MAE = mean_absolute_error(model.predict(data["val_X"]), data["val_y"])
