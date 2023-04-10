@@ -47,7 +47,7 @@ def load_data():
     data["test_X"] = test[:, 0:10]
     data["test_y"] = test[:, 10]
 
-    data["scale"] = scaler
+    data["scaler"] = scaler
     return data
 
 
