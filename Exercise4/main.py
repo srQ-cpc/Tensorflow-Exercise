@@ -13,6 +13,7 @@ from keras.layers import Input, Dense, Dropout
 from keras.wrappers.scikit_learn import KerasClassifier
 from sklearn.model_selection import RandomizedSearchCV
 import numpy as np
+from hyperband import Hyperband
 
 
 def load_mnist():
@@ -51,7 +52,7 @@ def create_hyperparameters():
     return {"batch_size": batches, "optimizer": optimizers, "keep_prob": dropout}
 
 
-def main():
+def random_search():
     data = load_mnist()
     model = KerasClassifier(build_fn=build_network, verbose=0)
     hyperparameters = create_hyperparameters()
@@ -62,5 +63,29 @@ def main():
     print(search.best_params_)
 
 
+def get_params():
+    batches = np.random.choice([5, 10, 100])
+    optimizers = np.random.choice(['rmsprop', 'adam', 'adadelta'])
+    dropout = np.random.choice(np.linspace(0.1, 0.5, 10))
+    return {"batch_size": batches, "optimizer": optimizers, "keep_prob": dropout}
+
+
+def try_params(data, num_iters, hyperparameters):
+    model = build_network(keep_prob=hyperparameters["keep_prob"], optimizer=hyperparameters["optimizer"])
+    model.fit(x=data["train_X"], y=data["train_y"],
+              batch_size=hyperparameters["batch_size"],
+              epochs=int(num_iters))
+    loss, accuracy = model.evaluate(x=data["val_X"], y=data["val_y"], verbose=0)
+
+    return {"loss": loss}
+
+def hyperband_search():
+    data = load_mnist()
+    hb = Hyperband(data, get_params, try_params, max_iter=10)
+    results = hb.run()
+    print(results)
+
+
 if __name__ == "__main__":
-    main()
+    # random_search()
+    hyperband_search()
