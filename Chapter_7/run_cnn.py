@@ -7,12 +7,17 @@
 # @date 2023/12/17
 
 
+# Deep Learning Quick Reference Chapter 7: Convolutional Neural Networks
+# Mike Bernico <mike.bernico@gmail.com>
+
+import keras
 from keras.datasets import cifar10
 from keras.utils import to_categorical
 from keras.models import Model
 from keras.layers import Dense, Input, Flatten, BatchNormalization, Dropout
 from keras.layers import Conv2D, MaxPooling2D
 from keras.callbacks import TensorBoard, ModelCheckpoint
+from keras.preprocessing.image import ImageDataGenerator
 from sklearn.metrics import classification_report
 import os
 
@@ -27,6 +32,7 @@ def load_data():
 
     train_y = to_categorical(train_y)
     test_y = to_categorical(test_y)
+
     return {"train_X": train_X, "train_y": train_y,
             "val_X": test_X[:5000, :], "val_y": test_y[:5000, :],
             "test_X": test_X[5000:, :], "test_y": test_y[5000:, :]}
@@ -62,7 +68,7 @@ def build_network(num_gpu=1, input_shape=None):
 
 
 def create_callbacks():
-    tensorboard_callback = TensorBoard(log_dir=os.path.join(os.getcwd(), "tb_log", "cnn64_cnn32_fc128_fc64_batch_norm"), histogram_freq=1, batch_size=32,
+    tensorboard_callback = TensorBoard(log_dir=os.path.join(os.getcwd(), "tb_log", "cnn64_cnn32_fc128_fc64_batch_norm_data_aug"), histogram_freq=1, batch_size=32,
                                        write_graph=True, write_grads=False)
     checkpoint_callback = ModelCheckpoint(filepath="./model-weights.{epoch:02d}-{val_accuracy:.6f}.hdf5", monitor='val_accuracy',
                                           verbose=0, save_best_only=True)
@@ -79,14 +85,24 @@ def print_model_metrics(model, data):
     print(classification_report(test_y, y_hat))
 
 
+def create_datagen(train_X):
+    data_generator = ImageDataGenerator(
+        rotation_range=20,
+        width_shift_range=0.02,
+        height_shift_range=0.02,
+        horizontal_flip=True)
+    data_generator.fit(train_X)
+    return data_generator
+
+
 def main():
     IMG_HEIGHT = 32
     IMG_WIDTH = 32
     CHANNELS = 3  # RGB
     data = load_data()
+    data_generator = create_datagen(data["train_X"])
     callbacks = create_callbacks()
     model = build_network(num_gpu=1, input_shape=(IMG_HEIGHT, IMG_WIDTH, CHANNELS))
-
     print(data["train_X"].shape)
     print(data["train_y"].shape)
     print(data["val_X"].shape)
@@ -95,12 +111,14 @@ def main():
     print(data["test_y"].shape)
     print(model.summary())
 
-    model.fit(x=data["train_X"], y=data["train_y"],
-              batch_size=32,
-              epochs=200,
-              validation_data=(data["val_X"], data["val_y"]),
-              verbose=1,
-              callbacks=callbacks)
+    model.fit(
+        data_generator.flow(data["train_X"], data["train_y"], batch_size=32),
+        steps_per_epoch=len(data["train_X"]) // 32,
+        epochs=200,
+        validation_data=(data["val_X"], data["val_y"]),
+        verbose=1,
+        callbacks=callbacks
+    )
 
     print_model_metrics(model, data)
 
